@@ -7,8 +7,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'models/app_connectivity.dart';
 import 'models/client.dart';
 import 'models/queue_state.dart';
+import 'models/user_role.dart';
 import 'providers/queue_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'providers/auth_provider.dart';
 import 'services/connectivity_service.dart';
 import 'services/geolocation_service.dart';
 import 'services/sync_service.dart';
@@ -18,6 +20,8 @@ import 'widgets/offline_banner.dart';
 import 'widgets/client_card.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/queue_empty_widget.dart';
+import 'screens/login_screen.dart';
+import 'widgetspopover/admin_panel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,12 +47,14 @@ void main() async {
   final connectivityProvider = ConnectivityProvider(
     ConnectivityService(supabaseClient),
   );
+  final authProvider = AuthProvider(supabaseClient);
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: queueProvider),
         ChangeNotifierProvider.value(value: connectivityProvider),
+        ChangeNotifierProvider.value(value: authProvider),
       ],
       child: const WaitingRoomApp(),
     ),
@@ -63,19 +69,23 @@ class WaitingRoomApp extends StatelessWidget {
     return MaterialApp(
       title: 'Waiting Room',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const WaitingRoomScreen(),
+      home: const LoginScreen(),
+      routes: {
+        '/queue': (context) => const QueueScreen(),
+        '/admin': (context) => const AdminPanel(),
+      },
     );
   }
 }
 
-class WaitingRoomScreen extends StatefulWidget {
-  const WaitingRoomScreen({super.key});
+class QueueScreen extends StatefulWidget {
+  const QueueScreen({super.key});
 
   @override
-  State<WaitingRoomScreen> createState() => _WaitingRoomScreenState();
+  State<QueueScreen> createState() => _QueueScreenState();
 }
 
-class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
+class _QueueScreenState extends State<QueueScreen> {
   final TextEditingController _controller = TextEditingController();
 
   @override
@@ -97,12 +107,27 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   Widget build(BuildContext context) {
     final connectivity = context.watch<ConnectivityProvider>();
     final queueProvider = context.watch<QueueProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Waiting Room'),
         centerTitle: true,
         actions: [
+          if (authProvider.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              onPressed: () => Navigator.pushNamed(context, '/admin'),
+              tooltip: 'Admin Panel',
+            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              authProvider.signOut();
+              Navigator.pushReplacementNamed(context, '/');
+            },
+            tooltip: 'Logout',
+          ),
           IconButton(
             key: const Key('nextClientButton'),
             icon: const Icon(Icons.skip_next),

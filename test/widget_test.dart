@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:waiting_room_app/main.dart';
 import 'package:waiting_room_app/providers/queue_provider.dart';
 import 'package:waiting_room_app/providers/connectivity_provider.dart';
+import 'package:waiting_room_app/providers/auth_provider.dart';
 import 'package:waiting_room_app/models/client.dart';
 import 'package:waiting_room_app/models/queue_state.dart';
 import 'package:waiting_room_app/services/geolocation_service.dart';
@@ -51,13 +52,8 @@ class _MockConnectivityService extends ConnectivityService {
   Future<bool> isSupabaseAvailable() async => true;
 }
 
-class FakeConnectivityProvider extends ConnectivityProvider {
-  FakeConnectivityProvider() : super(_MockConnectivityService());
-
-  @override
-  Future<void> initialize() async {
-    // No-op for testing - avoid starting timers
-  }
+class _MockAuthService extends AuthProvider {
+  _MockAuthService() : super(_MockSupabaseClient());
 }
 
 class FakeQueueProvider extends QueueProvider {
@@ -115,18 +111,38 @@ class FakeQueueProvider extends QueueProvider {
   }
 }
 
+class FakeConnectivityProvider extends ConnectivityProvider {
+  FakeConnectivityProvider() : super(_MockConnectivityService());
+
+  @override
+  Future<void> initialize() async {
+    // No-op for testing - avoid starting timers
+  }
+}
+
+class FakeAuthProvider extends AuthProvider {
+  FakeAuthProvider() : super(_MockSupabaseClient());
+
+  @override
+  Future<void> checkAuthStatus() async {
+    // No-op for testing
+  }
+}
+
 void main() {
   setUpAll(() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('WaitingRoomScreen Widget Tests', () {
+  group('QueueScreen Widget Tests', () {
     late FakeQueueProvider fakeProvider;
     late FakeConnectivityProvider fakeConnectivityProvider;
+    late FakeAuthProvider fakeAuthProvider;
 
     setUp(() {
       fakeProvider = FakeQueueProvider();
       fakeConnectivityProvider = FakeConnectivityProvider();
+      fakeAuthProvider = FakeAuthProvider();
     });
 
     tearDown(() {
@@ -139,8 +155,9 @@ void main() {
           ChangeNotifierProvider<QueueProvider>.value(value: fakeProvider),
           ChangeNotifierProvider<ConnectivityProvider>.value(
               value: fakeConnectivityProvider),
+          ChangeNotifierProvider<AuthProvider>.value(value: fakeAuthProvider),
         ],
-        child: const MaterialApp(home: WaitingRoomScreen()),
+        child: const MaterialApp(home: QueueScreen()),
       );
     }
 
